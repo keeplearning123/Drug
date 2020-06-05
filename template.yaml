@@ -1,0 +1,26 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: Drug
+
+Globals:
+  Function:
+    Runtime: java8
+    MemorySize: 512
+    Timeout: 6
+
+Resources:
+#  DrugQueue:
+#    Type: AWS::SQS::Queue
+
+  DrugQueueRecieverLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: com.handler.GetDrugQueueHandler
+      CodeUri: .
+      Events:
+        DrugSQSEvent:
+          Type: SQS
+          Properties:
+#            Queue: !GetAtt DrugQueue.Arn
+            Queue: arn:aws:sqs:us-east-1:284813664696:drugqueue
+            BatchSize: 10

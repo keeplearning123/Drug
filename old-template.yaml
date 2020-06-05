@@ -1,0 +1,71 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: Drug
+
+Globals:
+  Function:
+    Runtime: java8
+    MemorySize: 512
+    Timeout: 6
+
+Resources:
+  DrugClaimTopic:
+    Type: AWS::SNS::Topic
+
+  DrugQueue:
+    Type: AWS::SQS::Queue
+
+  DrugS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: drugbucket
+
+  DrugProcessingLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Environment:
+        Variables:
+          DRUG_TOPIC: !Ref DrugClaimTopic
+#      Runtime: java8
+#      MemorySize: 512
+#      Handler: com.test.Drug::getCostAsync
+      Handler: com.handler.S3GetDrug
+#      CodeUri: target/drug.jar # this is for deploying using sam deploy command line, for which the jar should be already build
+      CodeUri: .  # This is the folder relative to the old-template.yaml file, for deploying using plugin
+      Policies:
+        - S3ReadPolicy:
+            BucketName: drugbucket
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt DrugClaimTopic.TopicName
+      Events:
+        DrugLoadS3Event:
+          Type: S3
+          Properties:
+            Bucket: !Ref DrugS3Bucket
+            Events: s3:ObjectCreated:*
+
+  DrugRecieverLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Environment:
+        Variables:
+          DRUG_QUEUE: !Ref DrugQueue
+      Handler: com.handler.GetDrugSubscriber
+      CodeUri: .
+      Policies:
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt DrugQueue.QueueName
+      Events:
+        MyS3Event:
+          Type: SNS
+          Properties:
+            Topic: !Ref DrugClaimTopic
+
+  DrugQueueRecieverLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: com.handler.GetDrugQueueHandler
+      CodeUri: .
+      Policies:
+        - SQSPollerPolicy:
+            QueueName: !GetAtt DrugQueue.QueueName
